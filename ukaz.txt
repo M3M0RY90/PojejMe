@@ -1,0 +1,10 @@
+# Izgradnja slike
+docker build -t pojejme-api:latest .
+
+# Zagon zabojnika: vrata 8000 na gostitelju -> vrata 8080 v zabojniku
+docker run -p 8000:8080 --name pojejme-api -d pojejme-api:latest
+
+# Zagon slike z Docker Huba (zamenjaj uporabnisko_ime)
+docker run -p 8000:8080 --name pojejme-api -d uporabnisko_ime/pojejme-api:latest
+
+# Preverjanje: http://localhost:8000/api/status
