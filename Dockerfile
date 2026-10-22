@@ -8,20 +8,22 @@ ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 
 # slika, ki jo uporabimo za izgradnjo
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# (teče na platformi gradnje, prevaja pa za ciljno arhitekturo: amd64 ali arm64)
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 # kopiranje projektne datoteke v delovni direktorij
 COPY ["PojejMe.Api/PojejMe.Api.csproj", "PojejMe.Api/"]
 # zagon ukaza za obnovo vseh odvisnosti
-RUN dotnet restore "PojejMe.Api/PojejMe.Api.csproj"
+RUN dotnet restore "PojejMe.Api/PojejMe.Api.csproj" -a $TARGETARCH
 COPY . .
 WORKDIR "/src/PojejMe.Api"
 # zagon ukaza za izgradnjo projekta
-RUN dotnet build "PojejMe.Api.csproj" -c Release -o /app/build
+RUN dotnet build "PojejMe.Api.csproj" -c Release -a $TARGETARCH --no-restore -o /app/build
 
 FROM build AS publish
 # zagon ukaza za objavo projekta
-RUN dotnet publish "PojejMe.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "PojejMe.Api.csproj" -c Release -a $TARGETARCH --no-restore -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
