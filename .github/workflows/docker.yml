@@ -1,8 +1,11 @@
 name: Docker CI
 
-# ob vsaki objavi (push) v vejo main
+# ob vsaki objavi (push) v vejo main: gradnja, objava slike in deploy na Azure
+# ob vsakem pull requestu v main: samo preverimo, da se slika zgradi
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 jobs:
@@ -19,13 +22,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # pull request: samo gradnja brez objave, da se napaka vidi pred združitvijo v main
+      - name: Build Docker image (pull request)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: pojejme-api:pr
+
       - name: Login to Docker Hub
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push Docker image
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -42,6 +57,7 @@ jobs:
 
       # neprekinjena dostava: prijava v Azure z managed identity (OIDC, brez gesla)
       - name: Login to Azure
+        if: github.event_name == 'push'
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -49,7 +65,9 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # zabojnik v Azure Container Instances ponovno ustvarimo s pravkar zgrajeno sliko
+      # povezava na bazo gre v zabojnik kot skrita (secure) okoljska spremenljivka
       - name: Deploy to Azure Container Instances
+        if: github.event_name == 'push'
         run: |
           az container delete --resource-group pojejme-matic_group --name pojejme-matic --yes || true
           az container create \
@@ -63,4 +81,5 @@ jobs:
             --ports 8080 \
             --ip-address Public \
             --dns-name-label pojejme-matic \
-            --restart-policy Always
+            --restart-policy Always \
+            --secure-environment-variables "ConnectionStrings__PojejMe=${{ secrets.MYSQL_CONNECTION_STRING }}"
