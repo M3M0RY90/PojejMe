@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # id-token: write omogoči prijavo v Azure prek OIDC
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,3 +39,28 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/pojejme-api:latest
             ${{ secrets.DOCKER_USERNAME }}/pojejme-api:${{ github.sha }}
+
+      # neprekinjena dostava: prijava v Azure z managed identity (OIDC, brez gesla)
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # zabojnik v Azure Container Instances ponovno ustvarimo s pravkar zgrajeno sliko
+      - name: Deploy to Azure Container Instances
+        run: |
+          az container delete --resource-group pojejme-matic_group --name pojejme-matic --yes || true
+          az container create \
+            --resource-group pojejme-matic_group \
+            --name pojejme-matic \
+            --location spaincentral \
+            --image docker.io/${{ secrets.DOCKER_USERNAME }}/pojejme-api:${{ github.sha }} \
+            --os-type Linux \
+            --cpu 1 \
+            --memory 1 \
+            --ports 8080 \
+            --ip-address Public \
+            --dns-name-label pojejme-matic \
+            --restart-policy Always
