@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Models.Shramba;
+using PojejMe.Api.Models.Uporabniki;
 
 namespace PojejMe.Api.Data;
 
@@ -8,11 +9,15 @@ namespace PojejMe.Api.Data;
 public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbContext(options)
 {
     // --- Sklop 1: uporabniki, gospodinjstvo in statistika ---
+    // minimalni različici, ki ju je za shrambo dodal sklop 2; sklop 1 ju razširi
+    public DbSet<Gospodinjstvo> Gospodinjstva => Set<Gospodinjstvo>();
+    public DbSet<Uporabnik> Uporabniki => Set<Uporabnik>();
 
     // --- Sklop 2: shramba in nakupovalni seznam ---
     public DbSet<Zivilo> Zivila => Set<Zivilo>();
     public DbSet<SkupinaZivil> SkupineZivil => Set<SkupinaZivil>();
     public DbSet<Alergen> Alergeni => Set<Alergen>();
+    public DbSet<ZalogaShrambe> ZalogeShrambe => Set<ZalogaShrambe>();
 
     // --- Sklop 3: recepti ---
 
@@ -20,6 +25,26 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // --- Sklop 1 (minimalno) ---
+        modelBuilder.Entity<Gospodinjstvo>(e =>
+        {
+            e.Property(g => g.Ime).HasMaxLength(100);
+            e.HasMany(g => g.Clani).WithOne(u => u.Gospodinjstvo).HasForeignKey(u => u.GospodinjstvoId);
+            // testni podatki, dokler sklop 1 nima registracije
+            e.HasData(
+                new Gospodinjstvo { Id = 1, Ime = "Testno gospodinjstvo A" },
+                new Gospodinjstvo { Id = 2, Ime = "Testno gospodinjstvo B" });
+        });
+
+        modelBuilder.Entity<Uporabnik>(e =>
+        {
+            e.Property(u => u.Ime).HasMaxLength(100);
+            e.HasData(
+                new Uporabnik { Id = 1, Ime = "Ana", GospodinjstvoId = 1 },
+                new Uporabnik { Id = 2, Ime = "Bor", GospodinjstvoId = 1 },
+                new Uporabnik { Id = 3, Ime = "Cene", GospodinjstvoId = 2 });
+        });
+
         // --- Sklop 2 ---
         modelBuilder.Entity<Zivilo>(e =>
         {
@@ -41,6 +66,22 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
             {
                 e.Property(lastnost).HasPrecision(6, 2);
             }
+        });
+
+        modelBuilder.Entity<ZalogaShrambe>(e =>
+        {
+            e.Property(z => z.Kolicina).HasPrecision(10, 2);
+            // enoto in lokacijo shranimo kot besedilo ("Hladilnik"), da je baza berljiva
+            e.Property(z => z.Enota).HasConversion<string>().HasMaxLength(10);
+            e.Property(z => z.Lokacija).HasConversion<string>().HasMaxLength(20);
+
+            e.HasOne(z => z.Gospodinjstvo).WithMany().HasForeignKey(z => z.GospodinjstvoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Restrict: živila, ki je v kakšni shrambi, ni mogoče izbrisati (pogoj 5 pri UZ-2.1)
+            e.HasOne(z => z.Zivilo).WithMany().HasForeignKey(z => z.ZiviloId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(z => z.Dodal).WithMany().HasForeignKey(z => z.DodalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<SkupinaZivil>(e =>
