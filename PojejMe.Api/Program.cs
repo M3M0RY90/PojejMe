@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Data;
 
@@ -12,7 +13,9 @@ if (!string.IsNullOrEmpty(connectionString))
         options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 21))));
 }
 
-builder.Services.AddControllers();
+// enume v JSON pišemo kot besedilo ("Hladilnik"), ne kot številke (0)
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
