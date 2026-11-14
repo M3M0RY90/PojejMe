@@ -12,6 +12,7 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
     // minimalni različici, ki ju je za shrambo dodal sklop 2; sklop 1 ju razširi
     public DbSet<Gospodinjstvo> Gospodinjstva => Set<Gospodinjstvo>();
     public DbSet<Uporabnik> Uporabniki => Set<Uporabnik>();
+    public DbSet<PrehranskaOmejitev> PrehranskeOmejitve => Set<PrehranskaOmejitev>();
 
     // --- Sklop 2: shramba in nakupovalni seznam ---
     public DbSet<Zivilo> Zivila => Set<Zivilo>();
@@ -42,10 +43,27 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
             // UZ-1.1a: e-pošta je enolična (več vrednosti NULL MySQL dovoli, zato testni uporabniki ne motijo)
             e.Property(u => u.Email).HasMaxLength(255);
             e.HasIndex(u => u.Email).IsUnique();
+
+            // UZ-1.2: povezava več-na-več v eno smer (alergen ne pozna uporabnikov), vmesni tabeli poimenujemo sami
+            e.HasMany(u => u.Alergeni).WithMany().UsingEntity(j => j.ToTable("UporabnikAlergen"));
+            e.HasMany(u => u.PrehranskeOmejitve).WithMany().UsingEntity(j => j.ToTable("UporabnikOmejitev"));
+
             e.HasData(
                 new Uporabnik { Id = 1, Ime = "Ana", GospodinjstvoId = 1 },
                 new Uporabnik { Id = 2, Ime = "Bor", GospodinjstvoId = 1 },
                 new Uporabnik { Id = 3, Ime = "Cene", GospodinjstvoId = 2 });
+        });
+
+        // UZ-1.2: šifrant prehranskih omejitev
+        modelBuilder.Entity<PrehranskaOmejitev>(e =>
+        {
+            e.Property(o => o.Ime).HasMaxLength(50);
+            e.HasData(
+                new PrehranskaOmejitev { Id = 1, Ime = "Vegetarijansko" },
+                new PrehranskaOmejitev { Id = 2, Ime = "Vegansko" },
+                new PrehranskaOmejitev { Id = 3, Ime = "Brez svinjine" },
+                new PrehranskaOmejitev { Id = 4, Ime = "Halal" },
+                new PrehranskaOmejitev { Id = 5, Ime = "Košer" });
         });
 
         // --- Sklop 2 ---
