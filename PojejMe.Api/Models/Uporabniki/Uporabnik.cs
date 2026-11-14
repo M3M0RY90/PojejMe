@@ -1,3 +1,5 @@
+using PojejMe.Api.Models.Shramba;
+
 namespace PojejMe.Api.Models.Uporabniki;
 
 // sklop 1 razširja minimalno različico iz sklopa 2 (kdo je dodal živilo, kateremu gospodinjstvu pripada)
@@ -18,6 +20,10 @@ public class Uporabnik
     // ponastavitev gesla: v bazi hranimo samo zgoščeno vrednost žetona, tako kot pri geslu
     public string? PonastavitevHash { get; set; }
     public DateTime? PonastavitevPoteceOb { get; set; }
+
+    // UZ-1.2 profil: prehranske omejitve in alergeni uporabnika (povezavi več-na-več, prazen seznam = brez omejitev)
+    public List<PrehranskaOmejitev> PrehranskeOmejitve { get; set; } = [];
+    public List<Alergen> Alergeni { get; set; } = [];
 
     public int GospodinjstvoId { get; set; }
     public Gospodinjstvo Gospodinjstvo { get; set; } = null!;

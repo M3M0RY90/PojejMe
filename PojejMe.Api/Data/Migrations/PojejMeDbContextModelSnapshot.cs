@@ -22,6 +22,21 @@ namespace PojejMe.Api.Data.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("AlergenUporabnik", b =>
+                {
+                    b.Property<int>("AlergeniId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UporabnikId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AlergeniId", "UporabnikId");
+
+                    b.HasIndex("UporabnikId");
+
+                    b.ToTable("UporabnikAlergen", (string)null);
+                });
+
             modelBuilder.Entity("AlergenZivilo", b =>
                 {
                     b.Property<int>("AlergeniId")
@@ -353,6 +368,51 @@ namespace PojejMe.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PojejMe.Api.Models.Uporabniki.PrehranskaOmejitev", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ime")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PrehranskeOmejitve");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Ime = "Vegetarijansko"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Ime = "Vegansko"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Ime = "Brez svinjine"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Ime = "Halal"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Ime = "Košer"
+                        });
+                });
+
             modelBuilder.Entity("PojejMe.Api.Models.Uporabniki.Uporabnik", b =>
                 {
                     b.Property<int>("Id")
@@ -418,6 +478,36 @@ namespace PojejMe.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PrehranskaOmejitevUporabnik", b =>
+                {
+                    b.Property<int>("PrehranskeOmejitveId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UporabnikId")
+                        .HasColumnType("int");
+
+                    b.HasKey("PrehranskeOmejitveId", "UporabnikId");
+
+                    b.HasIndex("UporabnikId");
+
+                    b.ToTable("UporabnikOmejitev", (string)null);
+                });
+
+            modelBuilder.Entity("AlergenUporabnik", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Shramba.Alergen", null)
+                        .WithMany()
+                        .HasForeignKey("AlergeniId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.Uporabnik", null)
+                        .WithMany()
+                        .HasForeignKey("UporabnikId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AlergenZivilo", b =>
                 {
                     b.HasOne("PojejMe.Api.Models.Shramba.Alergen", null)
@@ -480,6 +570,21 @@ namespace PojejMe.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Gospodinjstvo");
+                });
+
+            modelBuilder.Entity("PrehranskaOmejitevUporabnik", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.PrehranskaOmejitev", null)
+                        .WithMany()
+                        .HasForeignKey("PrehranskeOmejitveId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.Uporabnik", null)
+                        .WithMany()
+                        .HasForeignKey("UporabnikId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PojejMe.Api.Models.Uporabniki.Gospodinjstvo", b =>
