@@ -361,6 +361,13 @@ namespace PojejMe.Api.Data.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("GesloHash")
+                        .HasColumnType("longtext");
+
                     b.Property<int>("GospodinjstvoId")
                         .HasColumnType("int");
 
@@ -369,7 +376,19 @@ namespace PojejMe.Api.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("PonastavitevHash")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("PonastavitevPoteceOb")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ZetonVerzija")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.HasIndex("GospodinjstvoId");
 
@@ -380,19 +399,22 @@ namespace PojejMe.Api.Data.Migrations
                         {
                             Id = 1,
                             GospodinjstvoId = 1,
-                            Ime = "Ana"
+                            Ime = "Ana",
+                            ZetonVerzija = 0
                         },
                         new
                         {
                             Id = 2,
                             GospodinjstvoId = 1,
-                            Ime = "Bor"
+                            Ime = "Bor",
+                            ZetonVerzija = 0
                         },
                         new
                         {
                             Id = 3,
                             GospodinjstvoId = 2,
-                            Ime = "Cene"
+                            Ime = "Cene",
+                            ZetonVerzija = 0
                         });
                 });
 

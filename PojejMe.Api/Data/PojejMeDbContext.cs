@@ -39,6 +39,9 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
         modelBuilder.Entity<Uporabnik>(e =>
         {
             e.Property(u => u.Ime).HasMaxLength(100);
+            // UZ-1.1a: e-pošta je enolična (več vrednosti NULL MySQL dovoli, zato testni uporabniki ne motijo)
+            e.Property(u => u.Email).HasMaxLength(255);
+            e.HasIndex(u => u.Email).IsUnique();
             e.HasData(
                 new Uporabnik { Id = 1, Ime = "Ana", GospodinjstvoId = 1 },
                 new Uporabnik { Id = 2, Ime = "Bor", GospodinjstvoId = 1 },
