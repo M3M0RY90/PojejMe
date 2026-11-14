@@ -82,4 +82,4 @@ jobs:
             --ip-address Public \
             --dns-name-label pojejme-matic \
             --restart-policy Always \
-            --secure-environment-variables "ConnectionStrings__PojejMe=${{ secrets.MYSQL_CONNECTION_STRING }}" "Admin__Kljuc=${{ secrets.ADMIN_KLJUC }}"
+            --secure-environment-variables "ConnectionStrings__PojejMe=${{ secrets.MYSQL_CONNECTION_STRING }}" "Admin__Kljuc=${{ secrets.ADMIN_KLJUC }}" "Jwt__Kljuc=${{ secrets.JWT_KLJUC }}"
