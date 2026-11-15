@@ -18,15 +18,6 @@ dotnet run --project PojejMe.Api     # API + Swagger
 API ob zagonu sam izvede migracije. Swagger je na naslovu, ki ga izpiše `dotnet run`, z dodanim `/swagger`.
 `/api/status` pove, ali je baza povezana.
 
-## Struktura
-
-```
-PojejMe.Api/
-  Data/PojejMeDbContext.cs   skupni DbContext, vsak sklop doda svoje DbSet v svoj razdelek
-  Data/Migrations/           migracije EF Core
-  Models/<Sklop>/            entitete (Uporabniki, Shramba, Recepti, Nacrtovanje)
-  Controllers/<Sklop>/       kontrolerji, pot /api/<vir>
-```
 
 ## Potek dela
 
