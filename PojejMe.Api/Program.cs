@@ -122,6 +122,7 @@ app.MapGet("/api/status", async (IServiceProvider services) =>
     };
 });
 
+app.UseStaticFiles(); 
 app.MapControllers();
 
 app.Run();
