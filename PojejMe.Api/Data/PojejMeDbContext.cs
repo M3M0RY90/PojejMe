@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Models.Shramba;
 using PojejMe.Api.Models.Uporabniki;
+using PojejMe.Api.Models.Recepti;  
 
 namespace PojejMe.Api.Data;
 
@@ -21,7 +22,9 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
     public DbSet<ZalogaShrambe> ZalogeShrambe => Set<ZalogaShrambe>();
 
     // --- Sklop 3: recepti ---
-
+    public DbSet<Recept> Recepti => Set<Recept>();                            
+    public DbSet<SestavinaRecepta> SestavineReceptov => Set<SestavinaRecepta>(); 
+    public DbSet<KorakPriprave> KorakiPriprave => Set<KorakPriprave>();      
     // --- Sklop 4: načrtovanje, skupno življenje in stroški ---
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -144,5 +147,22 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
                 new Alergen { Id = 13, Ime = "Volčji bob" },
                 new Alergen { Id = 14, Ime = "Mehkužci" });
         });
+                // ---- UZ-3.1 Recepti ----
+        modelBuilder.Entity<Recept>(e =>
+        {
+            e.Property(r => r.Ime).HasMaxLength(100);
+            e.Property(r => r.Opis).HasMaxLength(1000);
+            e.Property(r => r.SlikaPot).HasMaxLength(255);
+            e.HasOne(r => r.Avtor).WithMany().HasForeignKey(r => r.AvtorId);
+            e.HasMany(r => r.Sestavine).WithOne(s => s.Recept).HasForeignKey(s => s.ReceptId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(r => r.Koraki).WithOne(k => k.Recept).HasForeignKey(k => k.ReceptId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<SestavinaRecepta>(e =>
+        {
+            e.Property(s => s.Kolicina).HasPrecision(10, 2);
+            e.Property(s => s.Enota).HasConversion<string>().HasMaxLength(10);
+            e.HasOne(s => s.Zivilo).WithMany().HasForeignKey(s => s.ZiviloId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<KorakPriprave>(e => e.Property(k => k.Opis).HasMaxLength(1000));
     }
 }
