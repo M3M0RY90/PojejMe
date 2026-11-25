@@ -3,29 +3,49 @@ using PojejMe.Api.Models.Shramba;
 
 namespace PojejMe.Api.Services;
 
-// UZ-3.2: izračun hranilne vrednosti recepta iz njegovih sestavin.
-// Hranilne vrednosti živil so v bazi podane na 100 g.
+// UZ-3.2 in UZ-3.3: izračun hranilne vrednosti recepta iz njegovih sestavin.
+// Hranilne vrednosti živil so v bazi podane na 100 g. Nič se ne shranjuje v bazo,
+// zato je izračun vedno usklajen s trenutnimi sestavinami, količinami in porcijami.
 public static class HranilnaVrednost
 {
+    // UZ-3.2: odgovor za GET /api/recepti/{id}/hranilna-vrednost
     public static HranilnaVrednostOdgovor Izracunaj(Recept recept)
+    {
+        var povzetek = Povzetek(recept);
+        return new HranilnaVrednostOdgovor(recept.Id, recept.Ime, recept.SteviloPorcij,
+            povzetek.Skupaj, povzetek.NaPorcijo, povzetek.Opozorila);
+    }
+
+    // UZ-3.3: samodejni izračun, ki je del vsakega odgovora z receptom (dodajanje, urejanje, pregled)
+    public static PovzetekHranil Povzetek(Recept recept)
     {
         decimal kcal = 0, beljakovine = 0, ogljikoviHidrati = 0, mascobe = 0;
         var opozorila = new List<string>();
+        var prispevki = new List<PrispevekSestavine>();
 
-        foreach (var s in recept.Sestavine)
+        foreach (var s in recept.Sestavine.OrderBy(s => s.Id))
         {
             var grami = VGrame(s.Kolicina, s.Enota);
             if (grami is null)
             {
                 opozorila.Add($"Sestavina {s.Zivilo.Ime} je podana v kosih, zato ni upoštevana v izračunu.");
+                prispevki.Add(new PrispevekSestavine(s.ZiviloId, s.Zivilo.Ime, s.Kolicina, s.Enota, null));
                 continue;
             }
 
             var faktor = grami.Value / 100m;
-            kcal += s.Zivilo.EnergijaKcal * faktor;
-            beljakovine += s.Zivilo.Beljakovine * faktor;
-            ogljikoviHidrati += s.Zivilo.OgljikoviHidrati * faktor;
-            mascobe += s.Zivilo.Mascobe * faktor;
+            var sKcal = s.Zivilo.EnergijaKcal * faktor;
+            var sBeljakovine = s.Zivilo.Beljakovine * faktor;
+            var sOgljikoviHidrati = s.Zivilo.OgljikoviHidrati * faktor;
+            var sMascobe = s.Zivilo.Mascobe * faktor;
+
+            kcal += sKcal;
+            beljakovine += sBeljakovine;
+            ogljikoviHidrati += sOgljikoviHidrati;
+            mascobe += sMascobe;
+
+            prispevki.Add(new PrispevekSestavine(s.ZiviloId, s.Zivilo.Ime, s.Kolicina, s.Enota,
+                new Hranila(Zaokrozi(sKcal), Zaokrozi(sBeljakovine), Zaokrozi(sOgljikoviHidrati), Zaokrozi(sMascobe))));
         }
 
         var porcije = Math.Max(recept.SteviloPorcij, 1);
@@ -33,7 +53,7 @@ public static class HranilnaVrednost
         var naPorcijo = new Hranila(Zaokrozi(kcal / porcije), Zaokrozi(beljakovine / porcije),
             Zaokrozi(ogljikoviHidrati / porcije), Zaokrozi(mascobe / porcije));
 
-        return new HranilnaVrednostOdgovor(recept.Id, recept.Ime, recept.SteviloPorcij, skupaj, naPorcijo, opozorila);
+        return new PovzetekHranil(skupaj, naPorcijo, prispevki, opozorila);
     }
 
     // ml in l štejemo kot g in kg (gostota približno 1 g/ml); za kos masa ni znana

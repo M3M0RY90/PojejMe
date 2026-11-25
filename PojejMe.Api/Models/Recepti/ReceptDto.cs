@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using PojejMe.Api.Models.Shramba;
+using PojejMe.Api.Services;
 
 namespace PojejMe.Api.Models.Recepti;
 
@@ -47,7 +48,8 @@ public record ReceptOdgovor(
     List<SestavinaOdgovor> Sestavine,
     List<string> Koraki,
     DateTime UstvarjenOb,
-    DateTime? PosodobljenOb)
+    DateTime? PosodobljenOb,
+    PovzetekHranil HranilneVrednosti) // UZ-3.3: izračunano samodejno iz sestavin
 {
     public static ReceptOdgovor Iz(Recept r) => new(
         r.Id,
@@ -58,5 +60,6 @@ public record ReceptOdgovor(
         r.Sestavine.Select(s => new SestavinaOdgovor(s.ZiviloId, s.Zivilo.Ime, s.Kolicina, s.Enota)).ToList(),
         r.Koraki.OrderBy(k => k.Zaporedje).Select(k => k.Opis).ToList(),
         r.UstvarjenOb,
-        r.PosodobljenOb);
+        r.PosodobljenOb,
+        HranilnaVrednost.Povzetek(r));
 }
