@@ -129,6 +129,29 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
         return HranilnaVrednost.Izracunaj(recept);
     }
 
+    // GET api/recepti/iz-shrambe -> UZ-3.4 predlogi receptov glede na sestavine v shrambi gospodinjstva
+    // ?vsi=true vrne tudi recepte brez sestavin iz shrambe (0 %)
+    [HttpGet("iz-shrambe")]
+    public async Task<ActionResult<List<ReceptIzShrambeOdgovor>>> IzShrambe([FromQuery] bool vsi = false)
+    {
+        var uporabnikId = TrenutniUporabnikId();
+        var uporabnik = await db.Uporabniki.FindAsync(uporabnikId);
+        if (uporabnik is null) return Unauthorized();
+
+        // živila s preteklim rokom uporabnosti ne štejemo kot razpoložljiva
+        var danes = DateOnly.FromDateTime(DateTime.UtcNow);
+        var zaloge = await db.ZalogeShrambe.AsNoTracking()
+            .Where(z => z.GospodinjstvoId == uporabnik.GospodinjstvoId
+                        && (z.RokUporabnosti == null || z.RokUporabnosti >= danes))
+            .ToListAsync();
+
+        var recepti = await ReceptiZVsem().AsNoTracking()
+            .Where(r => r.AvtorId == uporabnikId)
+            .ToListAsync();
+
+        return ReceptiIzShrambe.Predlagaj(recepti, zaloge, vsi);
+    }
+
     // ---- pomožne metode ----
 
     private async Task<ActionResult?> PreveriVnos(ReceptVnos vnos)
