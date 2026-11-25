@@ -1,3 +1,7 @@
 bin/
 obj/
 .DS_Store
+
+# naložene slike receptov (UZ-3.1) se ne shranjujejo v git, mapa ostane
+PojejMe.Api/wwwroot/slike-receptov/*
+!PojejMe.Api/wwwroot/slike-receptov/.gitkeep

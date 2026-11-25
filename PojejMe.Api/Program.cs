@@ -122,7 +122,7 @@ app.MapGet("/api/status", async (IServiceProvider services) =>
     };
 });
 
-app.UseStaticFiles(); 
+app.UseStaticFiles(); // UZ-3.1: prikaz naloženih slik receptov (wwwroot/slike-receptov)
 app.MapControllers();
 
 app.Run();

@@ -52,6 +52,104 @@ namespace PojejMe.Api.Data.Migrations
                     b.ToTable("ZiviloAlergen", (string)null);
                 });
 
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.KorakPriprave", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Opis")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("ReceptId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Zaporedje")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceptId");
+
+                    b.ToTable("KorakiPriprave");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.Recept", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AvtorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Ime")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Opis")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime?>("PosodobljenOb")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("SlikaPot")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("SteviloPorcij")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UstvarjenOb")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AvtorId");
+
+                    b.ToTable("Recepti");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.SestavinaRecepta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Enota")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<decimal>("Kolicina")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("ReceptId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ZiviloId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceptId");
+
+                    b.HasIndex("ZiviloId");
+
+                    b.ToTable("SestavineReceptov");
+                });
+
             modelBuilder.Entity("PojejMe.Api.Models.Shramba.Alergen", b =>
                 {
                     b.Property<int>("Id")
@@ -523,6 +621,47 @@ namespace PojejMe.Api.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.KorakPriprave", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Recepti.Recept", "Recept")
+                        .WithMany("Koraki")
+                        .HasForeignKey("ReceptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recept");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.Recept", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.Uporabnik", "Avtor")
+                        .WithMany()
+                        .HasForeignKey("AvtorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Avtor");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.SestavinaRecepta", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Recepti.Recept", "Recept")
+                        .WithMany("Sestavine")
+                        .HasForeignKey("ReceptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Shramba.Zivilo", "Zivilo")
+                        .WithMany()
+                        .HasForeignKey("ZiviloId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Recept");
+
+                    b.Navigation("Zivilo");
+                });
+
             modelBuilder.Entity("PojejMe.Api.Models.Shramba.ZalogaShrambe", b =>
                 {
                     b.HasOne("PojejMe.Api.Models.Uporabniki.Uporabnik", "Dodal")
@@ -585,6 +724,13 @@ namespace PojejMe.Api.Data.Migrations
                         .HasForeignKey("UporabnikId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.Recept", b =>
+                {
+                    b.Navigation("Koraki");
+
+                    b.Navigation("Sestavine");
                 });
 
             modelBuilder.Entity("PojejMe.Api.Models.Uporabniki.Gospodinjstvo", b =>
