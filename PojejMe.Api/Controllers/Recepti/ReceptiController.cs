@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Data;
 using PojejMe.Api.Models.Recepti;
+using PojejMe.Api.Services;
 
 namespace PojejMe.Api.Controllers.Recepti;
 
@@ -115,6 +116,17 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
         await db.SaveChangesAsync();
 
         return await NaloziZaOdgovor(recept.Id);
+    }
+
+    // GET api/recepti/5/hranilna-vrednost -> UZ-3.2 kalorije in makrohranila, skupaj in na porcijo
+    [HttpGet("{id:int}/hranilna-vrednost")]
+    public async Task<ActionResult<HranilnaVrednostOdgovor>> HranilnaVrednostRecepta(int id)
+    {
+        var uporabnikId = TrenutniUporabnikId();
+        var recept = await ReceptiZVsem().AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id && r.AvtorId == uporabnikId);
+        if (recept is null) return NotFound();
+        return HranilnaVrednost.Izracunaj(recept);
     }
 
     // ---- pomožne metode ----
