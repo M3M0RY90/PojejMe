@@ -272,6 +272,55 @@ namespace PojejMe.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PojejMe.Api.Models.Shramba.DogodekZaloge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("Cas")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Enota")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<int>("GospodinjstvoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Kolicina")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Razlog")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("UporabnikId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Vrsta")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("ZiviloId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GospodinjstvoId");
+
+                    b.HasIndex("UporabnikId");
+
+                    b.HasIndex("ZiviloId");
+
+                    b.ToTable("DogodkiZaloge");
+                });
+
             modelBuilder.Entity("PojejMe.Api.Models.Shramba.PostavkaNakupovalnegaSeznama", b =>
                 {
                     b.Property<int>("Id")
@@ -754,6 +803,33 @@ namespace PojejMe.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Recept");
+
+                    b.Navigation("Zivilo");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Shramba.DogodekZaloge", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.Gospodinjstvo", "Gospodinjstvo")
+                        .WithMany()
+                        .HasForeignKey("GospodinjstvoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.Uporabnik", "Uporabnik")
+                        .WithMany()
+                        .HasForeignKey("UporabnikId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Shramba.Zivilo", "Zivilo")
+                        .WithMany()
+                        .HasForeignKey("ZiviloId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Gospodinjstvo");
+
+                    b.Navigation("Uporabnik");
 
                     b.Navigation("Zivilo");
                 });
