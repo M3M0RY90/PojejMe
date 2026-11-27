@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Data;
 using PojejMe.Api.Models.Recepti;
@@ -227,6 +228,69 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
             rezultat = rezultat.Where(r => r.HranilneVrednosti.NaPorcijo.EnergijaKcal <= maxKcal);
 
         return rezultat.ToList();
+    }
+
+    // POST api/recepti/5/skuhal-sem -> UZ-3.7 odšteje porabljene sestavine iz shrambe gospodinjstva
+    // telo (neobvezno): { "steviloPorcij": 2, "kljubTemu": false, "kljuc": "..." }
+    [HttpPost("{id:int}/skuhal-sem")]
+    public async Task<ActionResult<PripravaOdgovor>> SkuhalSem(
+        int id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] SkuhalSemVnos? vnos)
+    {
+        vnos ??= new SkuhalSemVnos();
+
+        var uporabnikId = TrenutniUporabnikId();
+        var uporabnik = await db.Uporabniki.FindAsync(uporabnikId);
+        if (uporabnik is null) return Unauthorized();
+
+        var recept = await ReceptiZVsem().AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id && r.AvtorId == uporabnikId);
+        if (recept is null) return NotFound();
+
+        // ista priprava (isti ključ) se odšteje samo enkrat
+        var kljuc = string.IsNullOrWhiteSpace(vnos.Kljuc) ? null : vnos.Kljuc.Trim();
+        if (kljuc is not null)
+        {
+            var obstojeca = await db.PripraveReceptov.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.ReceptId == id && p.Kljuc == kljuc);
+            if (obstojeca is not null)
+                return Ok(new PripravaOdgovor(obstojeca.Id, recept.Id, recept.Ime, obstojeca.SteviloPorcij,
+                    obstojeca.SkuhanoOb, true, [], []));
+        }
+
+        // živil s preteklim rokom ne porabimo (enako kot pri UZ-3.4)
+        var danes = DateOnly.FromDateTime(DateTime.UtcNow);
+        var zaloge = await db.ZalogeShrambe
+            .Where(z => z.GospodinjstvoId == uporabnik.GospodinjstvoId
+                        && (z.RokUporabnosti == null || z.RokUporabnosti >= danes))
+            .ToListAsync();
+
+        var porcije = vnos.SteviloPorcij ?? recept.SteviloPorcij;
+        var nacrt = SkuhaniRecept.Nacrtuj(recept, zaloge, porcije);
+
+        if (nacrt.Manjka.Count > 0 && !vnos.KljubTemu)
+            return Conflict(new SkuhalSemZavrnitev(
+                "V shrambi ni dovolj vseh sestavin. Za odštevanje tega, kar je na voljo, pošlji \"kljubTemu\": true.",
+                nacrt.Manjka));
+
+        // uveljavimo načrt: zmanjšamo zaloge, prazne odstranimo
+        foreach (var o in nacrt.Odstetja)
+            o.Zaloga.Kolicina = Math.Round(o.Zaloga.Kolicina - o.Odstej, 2);
+        foreach (var prazna in nacrt.Odstetja.Select(o => o.Zaloga).Distinct().Where(z => z.Kolicina <= 0))
+            db.ZalogeShrambe.Remove(prazna);
+
+        var priprava = new PripravaRecepta
+        {
+            ReceptId = recept.Id,
+            SteviloPorcij = porcije,
+            SkuhanoOb = DateTime.UtcNow,
+            Kljuc = kljuc
+        };
+        db.PripraveReceptov.Add(priprava);
+        await db.SaveChangesAsync(); // vse spremembe shrambe in zapis priprave se shranijo skupaj
+
+        return CreatedAtAction(nameof(Podrobno), new { id = recept.Id },
+            new PripravaOdgovor(priprava.Id, recept.Id, recept.Ime, porcije, priprava.SkuhanoOb, false,
+                nacrt.Poraba, nacrt.Manjka));
     }
 
     // ---- pomožne metode ----
