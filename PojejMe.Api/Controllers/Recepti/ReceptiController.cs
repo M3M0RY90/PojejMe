@@ -152,6 +152,33 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
         return ReceptiIzShrambe.Predlagaj(recepti, zaloge, vsi);
     }
 
+    // GET api/recepti/resi-hrano?dni=3 -> UZ-3.5 recepti, ki porabijo živila s kratkim rokom uporabnosti
+    [HttpGet("resi-hrano")]
+    public async Task<ActionResult<ResiHranoOdgovor>> ResiHranoPredlogi([FromQuery] int dni = 3)
+    {
+        if (dni < 1 || dni > 30)
+        {
+            ModelState.AddModelError(nameof(dni), "Število dni mora biti med 1 in 30.");
+            return ValidationProblem(ModelState);
+        }
+
+        var uporabnikId = TrenutniUporabnikId();
+        var uporabnik = await db.Uporabniki.FindAsync(uporabnikId);
+        if (uporabnik is null) return Unauthorized();
+
+        var danes = DateOnly.FromDateTime(DateTime.UtcNow);
+        var zaloge = await db.ZalogeShrambe.AsNoTracking()
+            .Include(z => z.Zivilo)
+            .Where(z => z.GospodinjstvoId == uporabnik.GospodinjstvoId && z.RokUporabnosti != null)
+            .ToListAsync();
+
+        var recepti = await ReceptiZVsem().AsNoTracking()
+            .Where(r => r.AvtorId == uporabnikId)
+            .ToListAsync();
+
+        return ResiHrano.Predlagaj(recepti, zaloge, danes, dni);
+    }
+
     // ---- pomožne metode ----
 
     private async Task<ActionResult?> PreveriVnos(ReceptVnos vnos)
