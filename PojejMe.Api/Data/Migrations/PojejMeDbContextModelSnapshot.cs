@@ -89,6 +89,9 @@ namespace PojejMe.Api.Data.Migrations
                     b.Property<int>("AvtorId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("CasPripraveMin")
+                        .HasColumnType("int");
+
                     b.Property<string>("Ime")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -576,6 +579,21 @@ namespace PojejMe.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PrehranskaOmejitevRecept", b =>
+                {
+                    b.Property<int>("PrehranskeOmejitveId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ReceptId")
+                        .HasColumnType("int");
+
+                    b.HasKey("PrehranskeOmejitveId", "ReceptId");
+
+                    b.HasIndex("ReceptId");
+
+                    b.ToTable("ReceptOmejitev", (string)null);
+                });
+
             modelBuilder.Entity("PrehranskaOmejitevUporabnik", b =>
                 {
                     b.Property<int>("PrehranskeOmejitveId")
@@ -709,6 +727,21 @@ namespace PojejMe.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Gospodinjstvo");
+                });
+
+            modelBuilder.Entity("PrehranskaOmejitevRecept", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.PrehranskaOmejitev", null)
+                        .WithMany()
+                        .HasForeignKey("PrehranskeOmejitveId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Recepti.Recept", null)
+                        .WithMany()
+                        .HasForeignKey("ReceptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PrehranskaOmejitevUporabnik", b =>

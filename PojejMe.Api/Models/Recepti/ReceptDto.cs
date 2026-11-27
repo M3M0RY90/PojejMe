@@ -17,6 +17,13 @@ public class ReceptVnos
     [Range(1, 50, ErrorMessage = "Število porcij mora biti med 1 in 50.")]
     public int SteviloPorcij { get; set; }
 
+    // UZ-3.6
+    [Range(1, 1440, ErrorMessage = "Čas priprave mora biti med 1 in 1440 minut.")]
+    public int? CasPripraveMin { get; set; }
+
+    // UZ-3.6: Id-ji prehranskih omejitev (GET /api/profil/omejitve), ki jim recept ustreza
+    public List<int> PrehranskeOmejitveIds { get; set; } = [];
+
     [MinLength(1, ErrorMessage = "Recept mora imeti vsaj eno sestavino.")]
     public List<SestavinaVnos> Sestavine { get; set; } = [];
 
@@ -49,7 +56,9 @@ public record ReceptOdgovor(
     List<string> Koraki,
     DateTime UstvarjenOb,
     DateTime? PosodobljenOb,
-    PovzetekHranil HranilneVrednosti) // UZ-3.3: izračunano samodejno iz sestavin
+    PovzetekHranil HranilneVrednosti, // UZ-3.3: izračunano samodejno iz sestavin
+    int? CasPripraveMin,               // UZ-3.6
+    List<string> PrehranskeOmejitve)   // UZ-3.6
 {
     public static ReceptOdgovor Iz(Recept r) => new(
         r.Id,
@@ -61,5 +70,7 @@ public record ReceptOdgovor(
         r.Koraki.OrderBy(k => k.Zaporedje).Select(k => k.Opis).ToList(),
         r.UstvarjenOb,
         r.PosodobljenOb,
-        HranilnaVrednost.Povzetek(r));
+        HranilnaVrednost.Povzetek(r),
+        r.CasPripraveMin,
+        r.PrehranskeOmejitve.OrderBy(o => o.Id).Select(o => o.Ime).ToList());
 }

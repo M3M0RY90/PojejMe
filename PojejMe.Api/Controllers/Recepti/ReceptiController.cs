@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Data;
 using PojejMe.Api.Models.Recepti;
+using PojejMe.Api.Models.Uporabniki;
 using PojejMe.Api.Services;
 
 namespace PojejMe.Api.Controllers.Recepti;
@@ -21,7 +22,8 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
 
     private IQueryable<Recept> ReceptiZVsem() => db.Recepti
         .Include(r => r.Sestavine).ThenInclude(s => s.Zivilo)
-        .Include(r => r.Koraki);
+        .Include(r => r.Koraki)
+        .Include(r => r.PrehranskeOmejitve);
 
     // GET api/recepti -> moji recepti
     [HttpGet]
@@ -53,7 +55,7 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
         if (napaka is not null) return napaka;
 
         var recept = new Recept { AvtorId = TrenutniUporabnikId(), UstvarjenOb = DateTime.UtcNow };
-        Prepisi(recept, vnos);
+        Prepisi(recept, vnos, await NaloziOmejitve(vnos));
 
         db.Recepti.Add(recept);
         await db.SaveChangesAsync();
@@ -74,7 +76,7 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
 
         db.SestavineReceptov.RemoveRange(recept.Sestavine);
         db.KorakiPriprave.RemoveRange(recept.Koraki);
-        Prepisi(recept, vnos);
+        Prepisi(recept, vnos, await NaloziOmejitve(vnos));
         recept.PosodobljenOb = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
@@ -179,6 +181,54 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
         return ResiHrano.Predlagaj(recepti, zaloge, danes, dni);
     }
 
+    // GET api/recepti/iskanje?ime=pala&maxCas=30&minKcal=100&maxKcal=500&omejitve=1&omejitve=2 -> UZ-3.6
+    // vsi filtri so neobvezni in se kombinirajo (IN); kalorije se primerjajo na porcijo
+    [HttpGet("iskanje")]
+    public async Task<ActionResult<List<ReceptOdgovor>>> Iskanje(
+        [FromQuery] string? ime,
+        [FromQuery] int? maxCas,
+        [FromQuery] decimal? minKcal,
+        [FromQuery] decimal? maxKcal,
+        [FromQuery] List<int>? omejitve)
+    {
+        if (maxCas is < 1)
+            ModelState.AddModelError(nameof(maxCas), "Največji čas priprave mora biti vsaj 1 minuta.");
+        if (minKcal is < 0m || maxKcal is < 0m)
+            ModelState.AddModelError(nameof(maxKcal), "Kalorije ne smejo biti negativne.");
+        if (minKcal is not null && maxKcal is not null && minKcal > maxKcal)
+            ModelState.AddModelError(nameof(minKcal), "Najmanjše število kalorij ne sme biti večje od največjega.");
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        var uporabnikId = TrenutniUporabnikId();
+        var poizvedba = ReceptiZVsem().AsNoTracking().Where(r => r.AvtorId == uporabnikId);
+
+        // iskanje po imenu: del imena, ne glede na velike in male črke
+        if (!string.IsNullOrWhiteSpace(ime))
+        {
+            var iskano = ime.Trim();
+            poizvedba = poizvedba.Where(r => r.Ime.Contains(iskano));
+        }
+
+        // recepti brez vpisanega časa priprave pri tem filtru ne ustrezajo
+        if (maxCas is not null)
+            poizvedba = poizvedba.Where(r => r.CasPripraveMin != null && r.CasPripraveMin <= maxCas);
+
+        // recept mora ustrezati vsem izbranim omejitvam
+        foreach (var omejitevId in (omejitve ?? []).Distinct())
+            poizvedba = poizvedba.Where(r => r.PrehranskeOmejitve.Any(o => o.Id == omejitevId));
+
+        var recepti = await poizvedba.OrderBy(r => r.Ime).ToListAsync();
+
+        // kalorije se izračunajo sproti (UZ-3.3), zato ta filter izvedemo po nalaganju
+        var rezultat = recepti.Select(ReceptOdgovor.Iz);
+        if (minKcal is not null)
+            rezultat = rezultat.Where(r => r.HranilneVrednosti.NaPorcijo.EnergijaKcal >= minKcal);
+        if (maxKcal is not null)
+            rezultat = rezultat.Where(r => r.HranilneVrednosti.NaPorcijo.EnergijaKcal <= maxKcal);
+
+        return rezultat.ToList();
+    }
+
     // ---- pomožne metode ----
 
     private async Task<ActionResult?> PreveriVnos(ReceptVnos vnos)
@@ -191,14 +241,29 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
         if (obstojecih != ziviloIdji.Count)
             ModelState.AddModelError(nameof(vnos.Sestavine), "Vsaj eno živilo ne obstaja v bazi živil.");
 
+        // UZ-3.6: vse izbrane prehranske omejitve morajo obstajati v šifrantu
+        var omejitveIdji = vnos.PrehranskeOmejitveIds.Distinct().ToList();
+        var obstojecihOmejitev = await db.PrehranskeOmejitve.CountAsync(o => omejitveIdji.Contains(o.Id));
+        if (obstojecihOmejitev != omejitveIdji.Count)
+            ModelState.AddModelError(nameof(vnos.PrehranskeOmejitveIds), "Vsaj ena prehranska omejitev ne obstaja.");
+
         return ModelState.IsValid ? null : ValidationProblem(ModelState);
     }
 
-    private static void Prepisi(Recept recept, ReceptVnos vnos)
+    private Task<List<PrehranskaOmejitev>> NaloziOmejitve(ReceptVnos vnos)
+    {
+        var idji = vnos.PrehranskeOmejitveIds.Distinct().ToList();
+        return db.PrehranskeOmejitve.Where(o => idji.Contains(o.Id)).ToListAsync();
+    }
+
+    private static void Prepisi(Recept recept, ReceptVnos vnos, List<PrehranskaOmejitev> omejitve)
     {
         recept.Ime = vnos.Ime.Trim();
         recept.Opis = string.IsNullOrWhiteSpace(vnos.Opis) ? null : vnos.Opis.Trim();
         recept.SteviloPorcij = vnos.SteviloPorcij;
+        recept.CasPripraveMin = vnos.CasPripraveMin;
+        recept.PrehranskeOmejitve.Clear();
+        recept.PrehranskeOmejitve.AddRange(omejitve);
         recept.Sestavine = vnos.Sestavine
             .Select(s => new SestavinaRecepta { ZiviloId = s.ZiviloId, Kolicina = s.Kolicina, Enota = s.Enota!.Value })
             .ToList();
