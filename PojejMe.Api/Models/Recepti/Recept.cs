@@ -12,6 +12,10 @@ public class Recept
     public int SteviloPorcij { get; set; }
     public string? SlikaPot { get; set; }
 
+    // UZ-3.6: čas priprave v minutah (neobvezen) in prehranske omejitve, ki jim recept ustreza
+    public int? CasPripraveMin { get; set; }
+    public List<PrehranskaOmejitev> PrehranskeOmejitve { get; set; } = [];
+
     public int AvtorId { get; set; }
     public Uporabnik Avtor { get; set; } = null!;
 

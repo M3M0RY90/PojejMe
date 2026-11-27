@@ -159,6 +159,8 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
             // ob brisanju recepta se zbrišejo tudi njegove sestavine in koraki
             e.HasMany(r => r.Sestavine).WithOne(s => s.Recept).HasForeignKey(s => s.ReceptId).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(r => r.Koraki).WithOne(k => k.Recept).HasForeignKey(k => k.ReceptId).OnDelete(DeleteBehavior.Cascade);
+            // UZ-3.6: povezava več-na-več z šifrantom prehranskih omejitev (vmesna tabela ReceptOmejitev)
+            e.HasMany(r => r.PrehranskeOmejitve).WithMany().UsingEntity(j => j.ToTable("ReceptOmejitev"));
         });
 
         modelBuilder.Entity<SestavinaRecepta>(e =>
