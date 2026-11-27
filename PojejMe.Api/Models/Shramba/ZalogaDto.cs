@@ -25,6 +25,7 @@ public record ZalogaOdgovor(
     int Id,
     int ZiviloId,
     string Zivilo,
+    string Skupina,
     decimal Kolicina,
     Enota Enota,
     Lokacija Lokacija,
@@ -34,6 +35,13 @@ public record ZalogaOdgovor(
     string? Opozorilo)
 {
     public static ZalogaOdgovor Iz(ZalogaShrambe z, string? opozorilo = null) => new(
-        z.Id, z.ZiviloId, z.Zivilo.Ime, z.Kolicina, z.Enota, z.Lokacija,
+        z.Id, z.ZiviloId, z.Zivilo.Ime, z.Zivilo.Skupina.Ime, z.Kolicina, z.Enota, z.Lokacija,
         z.RokUporabnosti, z.Dodal.Ime, z.DodanoOb, opozorilo);
 }
+
+// UZ-2.5 pregled po lokacijah: zadetki, število po lokacijah in sporočilo, ko ni ničesar
+public record PregledShrambe(
+    Dictionary<Lokacija, int> PoLokacijah,
+    int Stevilo,
+    string? Sporocilo,
+    List<ZalogaOdgovor> Zaloge);
