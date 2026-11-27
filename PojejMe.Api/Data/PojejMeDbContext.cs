@@ -25,6 +25,7 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
     public DbSet<Recept> Recepti => Set<Recept>();
     public DbSet<SestavinaRecepta> SestavineReceptov => Set<SestavinaRecepta>();
     public DbSet<KorakPriprave> KorakiPriprave => Set<KorakPriprave>();
+    public DbSet<PripravaRecepta> PripraveReceptov => Set<PripravaRecepta>();
 
     // --- Sklop 4: načrtovanje, skupno življenje in stroški ---
 
@@ -172,5 +173,14 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
         });
 
         modelBuilder.Entity<KorakPriprave>(e => e.Property(k => k.Opis).HasMaxLength(1000));
+
+        // --- Sklop 3: UZ-3.7 Skuhal sem ---
+        modelBuilder.Entity<PripravaRecepta>(e =>
+        {
+            e.Property(p => p.Kljuc).HasMaxLength(64);
+            // isti ključ za isti recept je lahko zabeležen samo enkrat (pogoj 6 pri UZ-3.7)
+            e.HasIndex(p => new { p.ReceptId, p.Kljuc }).IsUnique();
+            e.HasOne(p => p.Recept).WithMany().HasForeignKey(p => p.ReceptId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

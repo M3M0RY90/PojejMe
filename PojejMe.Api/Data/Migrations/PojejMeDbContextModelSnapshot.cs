@@ -78,6 +78,35 @@ namespace PojejMe.Api.Data.Migrations
                     b.ToTable("KorakiPriprave");
                 });
 
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.PripravaRecepta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Kljuc")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<int>("ReceptId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SkuhanoOb")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SteviloPorcij")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceptId", "Kljuc")
+                        .IsUnique();
+
+                    b.ToTable("PripraveReceptov");
+                });
+
             modelBuilder.Entity("PojejMe.Api.Models.Recepti.Recept", b =>
                 {
                     b.Property<int>("Id")
@@ -643,6 +672,17 @@ namespace PojejMe.Api.Data.Migrations
                 {
                     b.HasOne("PojejMe.Api.Models.Recepti.Recept", "Recept")
                         .WithMany("Koraki")
+                        .HasForeignKey("ReceptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recept");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Recepti.PripravaRecepta", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Recepti.Recept", "Recept")
+                        .WithMany()
                         .HasForeignKey("ReceptId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

@@ -49,25 +49,9 @@ public static class ReceptiIzShrambe
         decimal vsota = 0;
         foreach (var z in zaloge.Where(z => z.ZiviloId == ziviloId))
         {
-            var pretvorjeno = Pretvori(z.Kolicina, z.Enota, enotaRecepta);
+            var pretvorjeno = Enote.Pretvori(z.Kolicina, z.Enota, enotaRecepta);
             if (pretvorjeno is not null) vsota += pretvorjeno.Value;
         }
         return vsota;
     }
-
-    private static decimal? Pretvori(decimal kolicina, Enota iz, Enota v)
-    {
-        if (iz == v) return kolicina;
-        var grami = VGrame(kolicina, iz);
-        if (grami is null || v == Enota.kos) return null;
-        return v is Enota.kg or Enota.l ? grami.Value / 1000 : grami.Value;
-    }
-
-    // ml in l štejemo kot g in kg (gostota približno 1 g/ml); kos nima znane mase
-    private static decimal? VGrame(decimal kolicina, Enota enota) => enota switch
-    {
-        Enota.g or Enota.ml => kolicina,
-        Enota.kg or Enota.l => kolicina * 1000,
-        _ => null
-    };
 }
