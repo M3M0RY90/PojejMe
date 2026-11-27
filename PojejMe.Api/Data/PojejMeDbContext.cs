@@ -20,6 +20,7 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
     public DbSet<SkupinaZivil> SkupineZivil => Set<SkupinaZivil>();
     public DbSet<Alergen> Alergeni => Set<Alergen>();
     public DbSet<ZalogaShrambe> ZalogeShrambe => Set<ZalogaShrambe>();
+    public DbSet<PostavkaNakupovalnegaSeznama> PostavkeNakupovalnegaSeznama => Set<PostavkaNakupovalnegaSeznama>();
 
     // --- Sklop 3: recepti ---
     public DbSet<Recept> Recepti => Set<Recept>();
@@ -173,6 +174,15 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
         });
 
         modelBuilder.Entity<KorakPriprave>(e => e.Property(k => k.Opis).HasMaxLength(1000));
+
+        // nakupovalni seznam (osnovna različica pri UZ-3.8)
+        modelBuilder.Entity<PostavkaNakupovalnegaSeznama>(e =>
+        {
+            e.Property(p => p.Kolicina).HasPrecision(10, 2);
+            e.Property(p => p.Enota).HasConversion<string>().HasMaxLength(10);
+            e.HasOne<Gospodinjstvo>().WithMany().HasForeignKey(p => p.GospodinjstvoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.Zivilo).WithMany().HasForeignKey(p => p.ZiviloId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         // --- Sklop 3: UZ-3.7 Skuhal sem ---
         modelBuilder.Entity<PripravaRecepta>(e =>

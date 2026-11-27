@@ -272,6 +272,44 @@ namespace PojejMe.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("PojejMe.Api.Models.Shramba.PostavkaNakupovalnegaSeznama", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DodanoOb")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Enota")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("varchar(10)");
+
+                    b.Property<int>("GospodinjstvoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("IzReceptaId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Kolicina")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("ZiviloId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GospodinjstvoId");
+
+                    b.HasIndex("ZiviloId");
+
+                    b.ToTable("PostavkeNakupovalnegaSeznama");
+                });
+
             modelBuilder.Entity("PojejMe.Api.Models.Shramba.SkupinaZivil", b =>
                 {
                     b.Property<int>("Id")
@@ -716,6 +754,23 @@ namespace PojejMe.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Recept");
+
+                    b.Navigation("Zivilo");
+                });
+
+            modelBuilder.Entity("PojejMe.Api.Models.Shramba.PostavkaNakupovalnegaSeznama", b =>
+                {
+                    b.HasOne("PojejMe.Api.Models.Uporabniki.Gospodinjstvo", null)
+                        .WithMany()
+                        .HasForeignKey("GospodinjstvoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PojejMe.Api.Models.Shramba.Zivilo", "Zivilo")
+                        .WithMany()
+                        .HasForeignKey("ZiviloId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Zivilo");
                 });

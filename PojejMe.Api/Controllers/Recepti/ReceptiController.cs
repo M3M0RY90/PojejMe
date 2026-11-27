@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Data;
 using PojejMe.Api.Models.Recepti;
+using PojejMe.Api.Models.Shramba;
 using PojejMe.Api.Models.Uporabniki;
 using PojejMe.Api.Services;
 
@@ -293,6 +294,62 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
                 nacrt.Poraba, nacrt.Manjka));
     }
 
+    // GET api/recepti/5/manjkajoce -> UZ-3.8 katere sestavine manjkajo v shrambi in koliko jih je treba dokupiti
+    [HttpGet("{id:int}/manjkajoce")]
+    public async Task<ActionResult<ManjkajoceOdgovor>> Manjkajoce(int id)
+    {
+        var (recept, zaloge, _, napaka) = await NaloziReceptInShrambo(id);
+        if (napaka is not null) return napaka;
+
+        var manjka = ManjkajoceSestavine.Izracunaj(recept!, zaloge!);
+        return new ManjkajoceOdgovor(recept!.Id, recept.Ime, manjka.Count == 0, manjka);
+    }
+
+    // POST api/recepti/5/manjkajoce-na-seznam -> UZ-3.8 doda manjkajoče sestavine na nakupovalni seznam gospodinjstva
+    // živilo, ki je že na seznamu, se ne doda še enkrat
+    [HttpPost("{id:int}/manjkajoce-na-seznam")]
+    public async Task<ActionResult<NaSeznamOdgovor>> ManjkajoceNaSeznam(int id)
+    {
+        var (recept, zaloge, gospodinjstvoId, napaka) = await NaloziReceptInShrambo(id);
+        if (napaka is not null) return napaka;
+
+        var manjka = ManjkajoceSestavine.Izracunaj(recept!, zaloge!);
+        if (manjka.Count == 0)
+            return new NaSeznamOdgovor(recept!.Id, recept.Ime, [], [], "V shrambi imaš vse sestavine, na seznam ni bilo dodano nič.");
+
+        var zeNaSeznamuIdji = await db.PostavkeNakupovalnegaSeznama
+            .Where(p => p.GospodinjstvoId == gospodinjstvoId)
+            .Select(p => p.ZiviloId)
+            .ToListAsync();
+
+        var dodano = new List<ManjkajocaPostavka>();
+        var zeNaSeznamu = new List<ManjkajocaPostavka>();
+        foreach (var m in manjka)
+        {
+            if (zeNaSeznamuIdji.Contains(m.ZiviloId))
+            {
+                zeNaSeznamu.Add(m);
+                continue;
+            }
+
+            db.PostavkeNakupovalnegaSeznama.Add(new PostavkaNakupovalnegaSeznama
+            {
+                GospodinjstvoId = gospodinjstvoId,
+                ZiviloId = m.ZiviloId,
+                Kolicina = m.Dokupiti,
+                Enota = m.Enota,
+                DodanoOb = DateTime.UtcNow,
+                IzReceptaId = recept!.Id
+            });
+            zeNaSeznamuIdji.Add(m.ZiviloId);
+            dodano.Add(m);
+        }
+        await db.SaveChangesAsync();
+
+        var sporocilo = $"Na nakupovalni seznam dodanih sestavin: {dodano.Count}, že na seznamu: {zeNaSeznamu.Count}.";
+        return new NaSeznamOdgovor(recept!.Id, recept.Ime, dodano, zeNaSeznamu, sporocilo);
+    }
+
     // ---- pomožne metode ----
 
     private async Task<ActionResult?> PreveriVnos(ReceptVnos vnos)
@@ -312,6 +369,27 @@ public class ReceptiController(PojejMeDbContext db, IWebHostEnvironment okolje) 
             ModelState.AddModelError(nameof(vnos.PrehranskeOmejitveIds), "Vsaj ena prehranska omejitev ne obstaja.");
 
         return ModelState.IsValid ? null : ValidationProblem(ModelState);
+    }
+
+    // recept prijavljenega uporabnika in nepretečene zaloge njegovega gospodinjstva (UZ-3.8)
+    private async Task<(Recept? recept, List<ZalogaShrambe>? zaloge, int gospodinjstvoId, ActionResult? napaka)>
+        NaloziReceptInShrambo(int id)
+    {
+        var uporabnikId = TrenutniUporabnikId();
+        var uporabnik = await db.Uporabniki.FindAsync(uporabnikId);
+        if (uporabnik is null) return (null, null, 0, Unauthorized());
+
+        var recept = await ReceptiZVsem().AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == id && r.AvtorId == uporabnikId);
+        if (recept is null) return (null, null, 0, NotFound());
+
+        var danes = DateOnly.FromDateTime(DateTime.UtcNow);
+        var zaloge = await db.ZalogeShrambe.AsNoTracking()
+            .Where(z => z.GospodinjstvoId == uporabnik.GospodinjstvoId
+                        && (z.RokUporabnosti == null || z.RokUporabnosti >= danes))
+            .ToListAsync();
+
+        return (recept, zaloge, uporabnik.GospodinjstvoId, null);
     }
 
     private Task<List<PrehranskaOmejitev>> NaloziOmejitve(ReceptVnos vnos)

@@ -44,7 +44,7 @@ public static class ReceptiIzShrambe
     }
 
     // vsota vseh zalog tega živila, pretvorjena v enoto recepta
-    private static decimal KolicinaVShrambi(List<ZalogaShrambe> zaloge, int ziviloId, Enota enotaRecepta)
+    public static decimal KolicinaVShrambi(List<ZalogaShrambe> zaloge, int ziviloId, Enota enotaRecepta)
     {
         decimal vsota = 0;
         foreach (var z in zaloge.Where(z => z.ZiviloId == ziviloId))
