@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PojejMe.Api.Data;
 using PojejMe.Api.Models.Shramba;
 using PojejMe.Api.Models.Uporabniki;
+using PojejMe.Api.Services;
 
 namespace PojejMe.Api.Controllers.Shramba;
 
@@ -68,6 +69,26 @@ public class ShrambaController(PojejMeDbContext db) : ControllerBase
             zaloge.Select(z => ZalogaOdgovor.Iz(z)).ToList());
     }
 
+    // UZ-2.6 Razvrščanje po roku: najprej živila, ki jim rok poteče najprej, živila brez roka na koncu
+    [HttpGet("po-roku")]
+    public async Task<ActionResult<List<ZalogaOdgovor>>> PoRoku(
+        [FromHeader(Name = "X-Uporabnik-Id")] int? uporabnikId)
+    {
+        var uporabnik = await NaloziUporabnika(uporabnikId);
+        if (uporabnik is null) return NeznanUporabnik();
+
+        var zaloge = await db.ZalogeShrambe
+            .Include(z => z.Zivilo).ThenInclude(z => z.Skupina).Include(z => z.Dodal)
+            .Where(z => z.GospodinjstvoId == uporabnik.GospodinjstvoId)
+            // false (ima rok) se razvrsti pred true (nima roka), zato so živila brez roka na koncu
+            .OrderBy(z => z.RokUporabnosti == null)
+            .ThenBy(z => z.RokUporabnosti)
+            .ThenBy(z => z.Zivilo.Ime)
+            .ToListAsync();
+
+        return zaloge.Select(z => ZalogaOdgovor.Iz(z)).ToList();
+    }
+
     // sporočilo, ko ni zadetkov: ločimo prazno lokacijo od iskanja brez zadetkov
     private static string? Sporocilo(int stevilo, Lokacija? lokacija, string? isci, int? skupinaId)
     {
@@ -126,7 +147,7 @@ public class ShrambaController(PojejMeDbContext db) : ControllerBase
         await db.SaveChangesAsync();
 
         // rok v preteklosti: vnos dovolimo, a uporabnika opozorimo (pogoj 4 pri UZ-2.2)
-        var danes = DateOnly.FromDateTime(DateTime.UtcNow);
+        var danes = Svezost.Danes();
         var opozorilo = vnos.RokUporabnosti < danes ? "Rok uporabnosti je že potekel." : null;
 
         return CreatedAtAction(nameof(Podrobno), new { id = zaloga.Id }, ZalogaOdgovor.Iz(zaloga, opozorilo));

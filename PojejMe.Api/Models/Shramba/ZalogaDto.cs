@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using PojejMe.Api.Services;
 
 namespace PojejMe.Api.Models.Shramba;
 
@@ -30,13 +31,24 @@ public record ZalogaOdgovor(
     Enota Enota,
     Lokacija Lokacija,
     DateOnly? RokUporabnosti,
+    int? DniDoRoka,
+    OznakaRoka? Oznaka,
+    string? Barva,
     string Dodal,
     DateTime DodanoOb,
     string? Opozorilo)
 {
-    public static ZalogaOdgovor Iz(ZalogaShrambe z, string? opozorilo = null) => new(
-        z.Id, z.ZiviloId, z.Zivilo.Ime, z.Zivilo.Skupina.Ime, z.Kolicina, z.Enota, z.Lokacija,
-        z.RokUporabnosti, z.Dodal.Ime, z.DodanoOb, opozorilo);
+    public static ZalogaOdgovor Iz(ZalogaShrambe z, string? opozorilo = null)
+    {
+        // UZ-2.6: oznaka in barva glede na to, koliko dni je še do roka
+        var danes = Svezost.Danes();
+        var oznaka = Svezost.Oznaka(z.RokUporabnosti, danes);
+
+        return new(
+            z.Id, z.ZiviloId, z.Zivilo.Ime, z.Zivilo.Skupina.Ime, z.Kolicina, z.Enota, z.Lokacija,
+            z.RokUporabnosti, Svezost.DniDoRoka(z.RokUporabnosti, danes), oznaka, Svezost.Barva(oznaka),
+            z.Dodal.Ime, z.DodanoOb, opozorilo);
+    }
 }
 
 // UZ-2.5 pregled po lokacijah: zadetki, število po lokacijah in sporočilo, ko ni ničesar
