@@ -153,6 +153,88 @@ public class ShrambaController(PojejMeDbContext db) : ControllerBase
         return CreatedAtAction(nameof(Podrobno), new { id = zaloga.Id }, ZalogaOdgovor.Iz(zaloga, opozorilo));
     }
 
+    // UZ-2.7 Poraba in zavržki
+    [HttpPost("{id:int}/poraba")]
+    public Task<ActionResult<PorabaOdgovor>> Porabi(
+        int id, PorabaVnos vnos, [FromHeader(Name = "X-Uporabnik-Id")] int? uporabnikId)
+        => Odstej(id, vnos.Kolicina, VrstaDogodka.Porabljeno, null, uporabnikId);
+
+    [HttpPost("{id:int}/zavrzek")]
+    public Task<ActionResult<PorabaOdgovor>> Zavrzi(
+        int id, ZavrzekVnos vnos, [FromHeader(Name = "X-Uporabnik-Id")] int? uporabnikId)
+        => Odstej(id, vnos.Kolicina, VrstaDogodka.Zavrzeno, vnos.Razlog?.Trim(), uporabnikId);
+
+    // zgodovina porabe in zavržkov gospodinjstva, najnovejši najprej
+    [HttpGet("dogodki")]
+    public async Task<ActionResult<List<DogodekOdgovor>>> Dogodki(
+        [FromQuery] VrstaDogodka? vrsta, [FromHeader(Name = "X-Uporabnik-Id")] int? uporabnikId)
+    {
+        var uporabnik = await NaloziUporabnika(uporabnikId);
+        if (uporabnik is null) return NeznanUporabnik();
+
+        var poizvedba = db.DogodkiZaloge.Where(d => d.GospodinjstvoId == uporabnik.GospodinjstvoId);
+        if (vrsta is not null) poizvedba = poizvedba.Where(d => d.Vrsta == vrsta);
+
+        var dogodki = await poizvedba
+            .Include(d => d.Zivilo).Include(d => d.Uporabnik)
+            .OrderByDescending(d => d.Cas).ThenByDescending(d => d.Id)
+            .ToListAsync();
+
+        return dogodki.Select(DogodekOdgovor.Iz).ToList();
+    }
+
+    // skupna logika za porabo in zavržek: zmanjša ali odstrani zalogo in zapiše dogodek
+    private async Task<ActionResult<PorabaOdgovor>> Odstej(
+        int id, decimal? kolicina, VrstaDogodka vrsta, string? razlog, int? uporabnikId)
+    {
+        var uporabnik = await NaloziUporabnika(uporabnikId);
+        if (uporabnik is null) return NeznanUporabnik();
+
+        var zaloga = await db.ZalogeShrambe
+            .Include(z => z.Zivilo).ThenInclude(z => z.Skupina).Include(z => z.Dodal)
+            .FirstOrDefaultAsync(z => z.Id == id && z.GospodinjstvoId == uporabnik.GospodinjstvoId);
+        if (zaloga is null) return NotFound();
+
+        // brez količine: vse, kar je v shrambi
+        var kolikor = kolicina ?? zaloga.Kolicina;
+
+        // več, kot je na voljo: zavrnemo in ničesar ne spremenimo (pogoj 2)
+        if (kolikor > zaloga.Kolicina)
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+            {
+                [nameof(PorabaVnos.Kolicina)] =
+                    [$"Na voljo je samo {zaloga.Kolicina:0.##} {zaloga.Enota}, ne moreš odšteti {kolikor:0.##} {zaloga.Enota}."]
+            }));
+
+        var dogodek = new DogodekZaloge
+        {
+            GospodinjstvoId = zaloga.GospodinjstvoId,
+            Zivilo = zaloga.Zivilo,
+            Kolicina = kolikor,
+            Enota = zaloga.Enota,
+            Vrsta = vrsta,
+            Razlog = string.IsNullOrEmpty(razlog) ? null : razlog,
+            Uporabnik = uporabnik,
+            Cas = DateTime.UtcNow
+        };
+        db.DogodkiZaloge.Add(dogodek);
+
+        // vse porabljeno ali zavrženo: zapis izgine iz shrambe (pogoja 3 in 4), sicer ostane preostanek (pogoj 1)
+        var vse = kolikor == zaloga.Kolicina;
+        if (vse) db.ZalogeShrambe.Remove(zaloga);
+        else zaloga.Kolicina -= kolikor;
+
+        // dogodek in sprememba zaloge se shranita skupaj (ena transakcija)
+        await db.SaveChangesAsync();
+
+        var beseda = vrsta == VrstaDogodka.Porabljeno ? "Porabljeno" : "Zavrženo";
+        var sporocilo = vse
+            ? $"{beseda}: {zaloga.Zivilo.Ime}. Živila ni več v shrambi."
+            : $"{beseda} {kolikor:0.##} {zaloga.Enota}, ostane {zaloga.Kolicina:0.##} {zaloga.Enota}.";
+
+        return new PorabaOdgovor(DogodekOdgovor.Iz(dogodek), vse ? null : ZalogaOdgovor.Iz(zaloga), sporocilo);
+    }
+
     // najprej prijavljeni uporabnik iz žetona, sicer testni uporabnik iz glave X-Uporabnik-Id
     private Task<Uporabnik?> NaloziUporabnika(int? glavaId)
     {

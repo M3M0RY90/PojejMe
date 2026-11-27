@@ -57,3 +57,27 @@ public record PregledShrambe(
     int Stevilo,
     string? Sporocilo,
     List<ZalogaOdgovor> Zaloge);
+
+// UZ-2.7 poraba ali zavržek: brez količine se porabi oz. zavrže celotna zaloga
+public class PorabaVnos
+{
+    [Range(0.01, 100000, ErrorMessage = "Količina mora biti večja od 0.")]
+    public decimal? Kolicina { get; set; }
+}
+
+public class ZavrzekVnos : PorabaVnos
+{
+    [MaxLength(200)]
+    public string? Razlog { get; set; }
+}
+
+public record DogodekOdgovor(
+    int Id, int ZiviloId, string Zivilo, decimal Kolicina, Enota Enota, VrstaDogodka Vrsta,
+    string? Razlog, string Uporabnik, DateTime Cas)
+{
+    public static DogodekOdgovor Iz(DogodekZaloge d) => new(
+        d.Id, d.ZiviloId, d.Zivilo.Ime, d.Kolicina, d.Enota, d.Vrsta, d.Razlog, d.Uporabnik.Ime, d.Cas);
+}
+
+// Zaloga je null, ko je bila porabljena ali zavržena v celoti in je iz shrambe izginila
+public record PorabaOdgovor(DogodekOdgovor Dogodek, ZalogaOdgovor? Zaloga, string Sporocilo);

@@ -21,6 +21,7 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
     public DbSet<Alergen> Alergeni => Set<Alergen>();
     public DbSet<ZalogaShrambe> ZalogeShrambe => Set<ZalogaShrambe>();
     public DbSet<PostavkaNakupovalnegaSeznama> PostavkeNakupovalnegaSeznama => Set<PostavkaNakupovalnegaSeznama>();
+    public DbSet<DogodekZaloge> DogodkiZaloge => Set<DogodekZaloge>();
 
     // --- Sklop 3: recepti ---
     public DbSet<Recept> Recepti => Set<Recept>();
@@ -108,6 +109,23 @@ public class PojejMeDbContext(DbContextOptions<PojejMeDbContext> options) : DbCo
             e.HasOne(z => z.Zivilo).WithMany().HasForeignKey(z => z.ZiviloId)
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasOne(z => z.Dodal).WithMany().HasForeignKey(z => z.DodalId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // UZ-2.7 dnevnik porabe in zavržkov
+        modelBuilder.Entity<DogodekZaloge>(e =>
+        {
+            e.Property(d => d.Kolicina).HasPrecision(10, 2);
+            e.Property(d => d.Enota).HasConversion<string>().HasMaxLength(10);
+            e.Property(d => d.Vrsta).HasConversion<string>().HasMaxLength(20);
+            e.Property(d => d.Razlog).HasMaxLength(200);
+
+            e.HasOne(d => d.Gospodinjstvo).WithMany().HasForeignKey(d => d.GospodinjstvoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // živila z zgodovino porabe ni mogoče izbrisati iz baze živil, da statistika ostane pravilna
+            e.HasOne(d => d.Zivilo).WithMany().HasForeignKey(d => d.ZiviloId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(d => d.Uporabnik).WithMany().HasForeignKey(d => d.UporabnikId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
